@@ -39,6 +39,7 @@ export const initialUserData = deepFreeze({
       offset: 10,
       planetOverrides: {} as Record<string, { threshold?: number; offset?: number }>,
     },
+    stockAlerts: {} as UserData.StockAlertSettings,
     noBuy: [] as string[],
     sidebar: [
       ['BS', 'BS'],

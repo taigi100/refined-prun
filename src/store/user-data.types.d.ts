@@ -14,6 +14,9 @@ declare namespace UserData {
     sell?: number;
   }
 
+  // Store ID -> material ticker -> minimum quantity.
+  type StockAlertSettings = Record<string, Record<string, number>>;
+
   interface StoreSortingData {
     modes: SortingMode[];
     active?: string;
