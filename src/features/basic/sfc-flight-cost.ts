@@ -1,7 +1,8 @@
 import { shipsStore } from '@src/infrastructure/prun-api/data/ships';
 import { flightsStore } from '@src/infrastructure/prun-api/data/flights';
 import { flightPlansStore } from '@src/infrastructure/prun-api/data/flight-plans';
-import { getPrice } from '@src/infrastructure/fio/cx';
+import { getPrice, sumMaterialAmountPrice } from '@src/infrastructure/fio/cx';
+import { calculateShipRepairCost } from '@src/core/ship-repair-cost';
 import { formatCurrency } from '@src/utils/format';
 import { createReactiveDiv } from '@src/utils/reactive-element';
 import { keepLast } from '@src/utils/keep-last';
@@ -15,22 +16,24 @@ function onTileReady(tile: PrunTile) {
 
 function onTableReady(table: HTMLElement, ship: Ref<PrunApi.Ship | undefined>) {
   const planId = refPrunId(table);
-  const fuelCost = computed(() => getFuelCost(ship.value, planId.value));
+  const routeCost = computed(() => getRouteCost(ship.value, planId.value));
   const text = computed(() => {
-    if (fuelCost.value === undefined) {
+    if (routeCost.value === undefined) {
       return undefined;
     }
-    if (ship.value?.flightId) {
-      return `Cost:\n${formatCurrency(fuelCost.value)}`;
+    const { fuel, fees, repair } = routeCost.value;
+    const lines = [`Fuel: ${formatCurrency(fuel)}`, `Fees: ${formatCurrency(fees)}`];
+    if (!repair) {
+      lines.push('Repair at 80%: --', 'Route reserve: --', 'Total: --');
+      return lines.join('\n');
     }
 
-    const fees = flightPlansStore.getById(planId.value)?.costs;
-    if (!fees || fees.length === 0) {
-      return `Cost:\n${formatCurrency(fuelCost.value)}`;
-    }
-
-    const cost = fuelCost.value + sumBy(fees, x => x.amount);
-    return `Cost + Fees:\n${formatCurrency(cost)}`;
+    lines.push(
+      `Repair at 80%: ${formatCurrency(repair.repairAtCondition)}`,
+      `Route reserve: ${formatCurrency(repair.routeRepair)}`,
+      `Total: ${formatCurrency(fuel + fees + repair.routeRepair)}`,
+    );
+    return lines.join('\n');
   });
 
   subscribe($$(table, C.MissionPlan.stats), stats => {
@@ -42,7 +45,7 @@ function onTableReady(table: HTMLElement, ship: Ref<PrunApi.Ship | undefined>) {
   });
 }
 
-function getFuelCost(ship: PrunApi.Ship | undefined, planId: string | null) {
+function getRouteCost(ship: PrunApi.Ship | undefined, planId: string | null) {
   const segments = getSegments(ship, planId);
   if (segments === undefined) {
     return undefined;
@@ -61,7 +64,17 @@ function getFuelCost(ship: PrunApi.Ship | undefined, planId: string | null) {
     return undefined;
   }
 
-  return sfCost + ffCost;
+  const fees = ship?.flightId
+    ? 0
+    : sumBy(flightPlansStore.getById(planId)?.costs ?? [], x => x.amount);
+  const damage = sumBy(segments, x => Math.max(x.damage, 0));
+  const currentRepairCost = sumMaterialAmountPrice(ship?.repairMaterials);
+  const repair =
+    currentRepairCost === undefined || !ship
+      ? undefined
+      : calculateShipRepairCost(ship.condition, currentRepairCost, damage);
+
+  return { fuel: sfCost + ffCost, fees, repair };
 }
 
 function getFuelTypeCost(ticker: string, amount: number) {
