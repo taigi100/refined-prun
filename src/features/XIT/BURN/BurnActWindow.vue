@@ -24,6 +24,14 @@ const planetName = computed(() =>
 
 const agent = ref(false);
 
+const defaultConfig: ActionPackageConfig = {
+  materialGroups: {},
+  actions: {
+    'CX Buy': { exchange: 'IC1' },
+    MTRA: { origin: 'Hortus Station Warehouse' },
+  },
+};
+
 const pkg = computed(
   () =>
     ({
@@ -106,7 +114,11 @@ function afterExecute(
 
 <template>
   <div v-if="!planetName">Planet "{{ naturalId }}" not found.</div>
-  <ExecuteActionPackage v-else :pkg="pkg" :after-execute="afterExecute">
+  <ExecuteActionPackage
+    v-else
+    :pkg="pkg"
+    :default-config="defaultConfig"
+    :after-execute="afterExecute">
     <template #extra>
       <Active label="Generate Return JSON">
         <RadioItem v-model="generateReturnJson">generate return json</RadioItem>

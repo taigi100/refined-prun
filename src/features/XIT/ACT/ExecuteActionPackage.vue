@@ -10,22 +10,27 @@ import ConfigWindow from '@src/features/XIT/ACT/ConfigureWindow.vue';
 import { ActionPackageConfig, ActionStep } from '@src/features/XIT/ACT/shared-types';
 import { act } from '@src/features/XIT/ACT/act-registry';
 
-const { pkg, afterExecute, extraSteps } = defineProps<{
+const { pkg, afterExecute, extraSteps, defaultConfig } = defineProps<{
   pkg: UserData.ActionPackageData;
   afterExecute?: (
     config: ActionPackageConfig,
     log: (tag: LogTag, message: LogContent) => void,
   ) => void;
   extraSteps?: ActionStep[];
+  defaultConfig?: ActionPackageConfig;
 }>();
 
 const tile = useTile();
 let goingToSplit = ref(false);
 
-const config = ref({
-  materialGroups: {},
-  actions: {},
-} as ActionPackageConfig);
+const config = ref(
+  structuredClone(
+    defaultConfig ?? {
+      materialGroups: {},
+      actions: {},
+    },
+  ),
+);
 
 const log = ref([] as { tag: LogTag; message: LogContent }[]);
 const logScrolling = ref(true);
@@ -39,14 +44,10 @@ watch(config, clearLog, { deep: true });
 
 watchEffect(() => {
   for (const name of pkg.groups.map(x => x.name!)) {
-    if (config.value.materialGroups[name] === undefined) {
-      config.value.materialGroups[name] = {};
-    }
+    config.value.materialGroups[name] ??= {};
   }
   for (const name of pkg.actions.map(x => x.name!)) {
-    if (config.value.actions[name] === undefined) {
-      config.value.actions[name] = {};
-    }
+    config.value.actions[name] ??= {};
   }
 });
 

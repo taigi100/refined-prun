@@ -2,8 +2,8 @@ import { Logger } from '@src/features/XIT/ACT/runner/logger';
 import { MaterialBill } from '@src/features/XIT/ACT/material-bill';
 
 export interface ActionPackageConfig {
-  materialGroups: Record<string, unknown>[];
-  actions: Record<string, unknown>[];
+  materialGroups: Record<string, Record<string, unknown>>;
+  actions: Record<string, Record<string, unknown>>;
 }
 
 export interface ActionStep {
