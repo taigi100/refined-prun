@@ -4,7 +4,7 @@ import { useMinBufferHeight } from '@src/hooks/use-min-buffer-height';
 import ExecuteActionPackage from '@src/features/XIT/ACT/ExecuteActionPackage.vue';
 import { sitesStore } from '@src/infrastructure/prun-api/data/sites';
 import { getEntityNameFromAddress } from '@src/infrastructure/prun-api/data/addresses';
-import { configurableValue } from '@src/features/XIT/ACT/shared-types';
+import { ActionPackageConfig, configurableValue } from '@src/features/XIT/ACT/shared-types';
 
 const parameters = useXitParameters();
 const naturalId = parameters.join(' ');
@@ -15,6 +15,14 @@ const site = computed(() => sitesStore.getByPlanetNaturalIdOrName(naturalId));
 const planetName = computed(() =>
   site.value ? getEntityNameFromAddress(site.value.address) : undefined,
 );
+
+const defaultConfig: ActionPackageConfig = {
+  materialGroups: {},
+  actions: {
+    'CX Buy': { exchange: 'IC1' },
+    MTRA: { origin: 'Hortus Station Warehouse' },
+  },
+};
 
 const pkg = computed(
   () =>
@@ -52,5 +60,5 @@ const pkg = computed(
 
 <template>
   <div v-if="!planetName">Planet "{{ naturalId }}" not found.</div>
-  <ExecuteActionPackage v-else :pkg="pkg" />
+  <ExecuteActionPackage v-else :pkg="pkg" :default-config="defaultConfig" />
 </template>
