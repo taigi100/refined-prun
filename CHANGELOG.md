@@ -2,6 +2,14 @@
 
 ## Unreleased
 
+### Changed
+
+- `XIT FLOW`: The default price is now VWAP7D for both buy and sell
+
+### Fixed
+
+- `XIT STO`: Fixed text overflow in tooltips (`unclipped-tooltips`)
+
 ## 26.9.16
 
 ### Added
