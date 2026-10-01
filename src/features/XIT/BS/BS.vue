@@ -35,6 +35,7 @@ type SortDirection = 'asc' | 'desc';
 const sortKey = useTileState<SortKey>('sortKey', 'burn');
 const sortDirection = useTileState<SortDirection>('sortDirection', 'asc');
 const showCmds = useTileState('showCmds', true);
+const pinnedCmdMenu = ref<string | null>(null);
 const showBurn = useTileState('showBurn', true);
 const showProd = useTileState('showProd', true);
 const showRepair = useTileState('showRepair', true);
@@ -144,6 +145,15 @@ const filteredBases = computed(() => {
     x => x.naturalId.toUpperCase().includes(filter) || x.planetName.toUpperCase().includes(filter),
   );
 });
+
+watch([showCmds, filteredBases], ([showCommands, bases]) => {
+  if (
+    pinnedCmdMenu.value !== null &&
+    (!showCommands || !bases?.some(x => x.siteId === pinnedCmdMenu.value))
+  ) {
+    pinnedCmdMenu.value = null;
+  }
+});
 </script>
 
 <template>
@@ -208,6 +218,7 @@ const filteredBases = computed(() => {
         <BaseRow
           v-for="base in filteredBases"
           :key="base.naturalId"
+          v-model:pinned-cmd-menu="pinnedCmdMenu"
           :site-id="base.siteId"
           :natural-id="base.naturalId"
           :planet-name="base.planetName"

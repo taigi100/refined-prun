@@ -42,6 +42,26 @@ const {
   showWar: boolean;
 }>();
 
+const pinnedCmdMenu = defineModel<string | null>('pinnedCmdMenu', { required: true });
+const hoverDismissed = ref(false);
+
+function toggleCmdMenu() {
+  if (pinnedCmdMenu.value === siteId) {
+    pinnedCmdMenu.value = null;
+    hoverDismissed.value = true;
+    return;
+  }
+
+  pinnedCmdMenu.value = siteId;
+  hoverDismissed.value = false;
+}
+
+function openCmdMenuItem(command: string) {
+  pinnedCmdMenu.value = null;
+  hoverDismissed.value = true;
+  showBuffer(command);
+}
+
 const burn = computed(() => getPlanetBurn(siteId));
 const days = computed(() => (burn.value ? countDays(burn.value.burn) : undefined));
 const expandedBurns = useTileState('expandedBurns', [] as string[]);
@@ -172,15 +192,24 @@ const warehouseStore = computed(() =>
         {{ planetName }}
       </PrunLink>
     </td>
-    <td v-if="showCmds" :class="$style.cmdCell">
-      <PrunButton dark inline>CMDS&nbsp;▶</PrunButton>
+    <td
+      v-if="showCmds"
+      :class="[
+        $style.cmdCell,
+        { [$style.menuPinned]: pinnedCmdMenu === siteId },
+        { [$style.hoverEnabled]: pinnedCmdMenu === null && !hoverDismissed },
+      ]"
+      @mouseleave="hoverDismissed = false">
+      <PrunButton dark inline :aria-pressed="pinnedCmdMenu === siteId" @click="toggleCmdMenu">
+        CMDS&nbsp;▶
+      </PrunButton>
       <div :class="$style.expandedButtons">
-        <PrunButton dark inline @click="showBuffer(`BBL ${siteId}`)">BUILDINGS</PrunButton>
-        <PrunButton dark inline @click="showBuffer(`BBC ${naturalId}`)">CONSTRUCT</PrunButton>
-        <PrunButton dark inline @click="showBuffer(`WF ${siteId}`)">WORKFORCE</PrunButton>
-        <PrunButton dark inline @click="showBuffer(`EXP ${siteId}`)">EXPERTS</PrunButton>
-        <PrunButton dark inline @click="showBuffer(`BRA ${naturalId}`)">BRA</PrunButton>
-        <PrunButton dark inline @click="showBuffer('HQ')">HQ</PrunButton>
+        <PrunButton dark inline @click="openCmdMenuItem(`BBL ${siteId}`)">BUILDINGS</PrunButton>
+        <PrunButton dark inline @click="openCmdMenuItem(`BBC ${naturalId}`)">CONSTRUCT</PrunButton>
+        <PrunButton dark inline @click="openCmdMenuItem(`WF ${siteId}`)">WORKFORCE</PrunButton>
+        <PrunButton dark inline @click="openCmdMenuItem(`EXP ${siteId}`)">EXPERTS</PrunButton>
+        <PrunButton dark inline @click="openCmdMenuItem(`BRA ${naturalId}`)">BRA</PrunButton>
+        <PrunButton dark inline @click="openCmdMenuItem('HQ')">HQ</PrunButton>
       </div>
     </td>
     <td v-if="showBurn" :class="$style.statusCell">
@@ -290,16 +319,17 @@ const warehouseStore = computed(() =>
   flex-direction: row;
   align-items: center;
   gap: 0.25rem;
-  padding: 0 4px;
+  padding: 12px 4px;
   white-space: nowrap;
 }
 
-.cmdCell:hover .expandedButtons {
+.cmdCell.menuPinned .expandedButtons,
+.cmdCell.hoverEnabled:hover .expandedButtons {
   display: flex;
 }
 
-.row:has(.cmdCell:hover) .statusCell > *,
-.row:has(.cmdCell:hover) .invCell > * {
+.row:has(.cmdCell.menuPinned, .cmdCell.hoverEnabled:hover) .statusCell > *,
+.row:has(.cmdCell.menuPinned, .cmdCell.hoverEnabled:hover) .invCell > * {
   visibility: hidden;
 }
 
