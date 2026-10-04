@@ -17,6 +17,12 @@ function isCheckpoint(entry: MigrationEntry): entry is Checkpoint {
 // The date is for reference only, and it does not affect migration order.
 const migrations: MigrationEntry[] = [
   [
+    '04.10.2026 Add election planet list',
+    userData => {
+      userData.elec ??= { planets: [] };
+    },
+  ],
+  [
     '25.09.2026 Add stock alert settings',
     userData => {
       userData.settings.stockAlerts ??= {};

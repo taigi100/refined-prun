@@ -82,6 +82,9 @@ export const initialUserData = deepFreeze({
     folders: [] as UserData.TabFolder[],
   },
   commandLists: [] as UserData.CommandList[],
+  elec: {
+    planets: [] as string[],
+  },
   govburn: {
     planets: {} as Record<string, UserData.GovBurnPlanet>,
     config: {

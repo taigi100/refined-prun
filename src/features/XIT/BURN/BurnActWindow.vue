@@ -1,5 +1,6 @@
 <script setup lang="ts">
 import Active from '@src/components/forms/Active.vue';
+import PrunLink from '@src/components/PrunLink.vue';
 import RadioItem from '@src/components/forms/RadioItem.vue';
 import SelectInput from '@src/components/forms/SelectInput.vue';
 import {
@@ -146,9 +147,10 @@ function planFor(config: ActionPackageConfig): {
     planetName.value,
     days,
     resupplyConfig?.materialFilter,
+    true,
   );
   if (!bill) {
-    return { error: 'Waiting for planet burn data' };
+    return { error: 'Planet burn data is not loaded' };
   }
   if (Object.keys(bill).length === 0) {
     return { error: 'The base already has the requested supplies' };
@@ -315,6 +317,10 @@ function allocationText(allocation: ShipAllocation) {
       </div>
       <div :class="$style.plan">
         <div v-if="planFor(config).error">{{ planFor(config).error }}</div>
+        <div v-if="planFor(config).error === 'Planet burn data is not loaded'">
+          Open <PrunLink inline :command="`BS ${naturalId}`">BS {{ naturalId }}</PrunLink> to load
+          it.
+        </div>
         <div
           v-for="allocation in planFor(config).allocations ?? []"
           :key="allocation.target.ship.id">

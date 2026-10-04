@@ -13,6 +13,7 @@ export function computeResupplyBill(
   planet: string | undefined,
   days: number | undefined,
   materialFilter?: MaterialFilter,
+  passive = false,
 ): MaterialBill | undefined {
   if (!planet || days === undefined || isNaN(days)) {
     return undefined;
@@ -21,8 +22,12 @@ export function computeResupplyBill(
   if (!site) {
     return undefined;
   }
-  const workforce = workforcesStore.getById(site.siteId)?.workforces;
-  const production = productionStore.getBySiteId(site.siteId);
+  const workforce = (
+    passive ? workforcesStore.passiveGetById(site.siteId) : workforcesStore.getById(site.siteId)
+  )?.workforces;
+  const production = passive
+    ? productionStore.passiveGetBySiteId(site.siteId)
+    : productionStore.getBySiteId(site.siteId);
   if (workforce === undefined || production === undefined) {
     return undefined;
   }

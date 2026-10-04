@@ -1,8 +1,11 @@
 import ELEC from '@src/features/XIT/ELEC/ELEC.vue';
+import { observeCogcVoteTiles } from '@src/features/XIT/ELEC/cogc-votes';
+
+observeCogcVoteTiles();
 
 xit.add({
   command: 'ELEC',
-  name: 'ELECTIONS',
-  description: 'Upcoming elections for planets you have bases on.',
+  name: 'COGC WATCH',
+  description: 'CoGC votes and upkeep for selected planets.',
   component: () => ELEC,
 });

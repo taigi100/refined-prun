@@ -172,6 +172,8 @@ Use `data-tooltip` attribute for instant tooltips (PrUn-style). Don't use `title
 
 Every action that triggers server communication must require a user click. No automated server requests without explicit player action. This is a hard rule from the game developers.
 
+Reactive views and previews must use passive store getters. A regular getter can start a game request when data is missing, even if the view only appears to read data.
+
 The extension does make some background server requests (e.g., `XIT BURN` opens invisible buffers). This is a known ToS violation with explicit developer permission — don't extend this pattern without discussion.
 
 ---
