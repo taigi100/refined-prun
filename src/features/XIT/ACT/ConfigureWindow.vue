@@ -5,9 +5,10 @@ import { deserializeStorage } from '@src/features/XIT/ACT/actions/utils';
 import SectionHeader from '@src/components/SectionHeader.vue';
 import { act } from '@src/features/XIT/ACT/act-registry';
 
-const { pkg, config } = defineProps<{
+const { pkg, config, fitShipStore } = defineProps<{
   pkg: UserData.ActionPackageData;
   config: ActionPackageConfig;
+  fitShipStore?: PrunApi.Store;
 }>();
 
 interface Block {
@@ -27,11 +28,11 @@ const blocks = computed(() => {
     }
     const name = group.name!;
     let groupConfig = config.materialGroups[name];
-    if (!groupConfig) {
+    if (groupConfig === undefined) {
       continue;
     }
     const mtraAction = pkg.actions.find(a => a.type === 'MTRA' && a.group === group.name);
-    let shipStore: PrunApi.Store | undefined;
+    let shipStore: PrunApi.Store | undefined = fitShipStore;
     if (mtraAction) {
       const mtraConfig = config.actions[mtraAction.name!] as { destination?: string } | undefined;
       const destRef =
@@ -56,7 +57,7 @@ const blocks = computed(() => {
     }
     const name = action.name!;
     let actionConfig = config.actions[name];
-    if (!actionConfig) {
+    if (actionConfig === undefined) {
       continue;
     }
     blocks.push({

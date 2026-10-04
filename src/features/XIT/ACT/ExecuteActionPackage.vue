@@ -10,8 +10,22 @@ import ConfigWindow from '@src/features/XIT/ACT/ConfigureWindow.vue';
 import { ActionPackageConfig, ActionStep } from '@src/features/XIT/ACT/shared-types';
 import { act } from '@src/features/XIT/ACT/act-registry';
 
-const { pkg, afterExecute, extraSteps, defaultConfig } = defineProps<{
+const {
+  pkg,
+  preparePackage,
+  extraConfigValid = true,
+  fitShipStore,
+  afterExecute,
+  extraSteps,
+  defaultConfig,
+} = defineProps<{
   pkg: UserData.ActionPackageData;
+  preparePackage?: (config: ActionPackageConfig) => {
+    pkg?: UserData.ActionPackageData;
+    error?: string;
+  };
+  extraConfigValid?: boolean | ((config: ActionPackageConfig) => boolean);
+  fitShipStore?: PrunApi.Store;
   afterExecute?: (
     config: ActionPackageConfig,
     log: (tag: LogTag, message: LogContent) => void,
@@ -23,6 +37,8 @@ const { pkg, afterExecute, extraSteps, defaultConfig } = defineProps<{
 const tile = useTile();
 let goingToSplit = ref(false);
 
+defineSlots<{ extra(props: { config: ActionPackageConfig }): unknown }>();
+
 const config = ref(
   structuredClone(
     defaultConfig ?? {
@@ -30,6 +46,9 @@ const config = ref(
       actions: {},
     },
   ),
+);
+const isExtraConfigValid = computed(() =>
+  typeof extraConfigValid === 'function' ? extraConfigValid(config.value) : extraConfigValid,
 );
 
 const log = ref([] as { tag: LogTag; message: LogContent }[]);
@@ -119,6 +138,9 @@ const runner = new ActionRunner({
 });
 
 function onConfigureApplyClick() {
+  if (!isExtraConfigValid.value) {
+    return;
+  }
   showConfigure.value = false;
 }
 
@@ -129,8 +151,13 @@ function onConfigureClick() {
 async function onPreviewClick() {
   logScrolling.value = false;
   clearLog();
+  const prepared = preparePackage?.(config.value);
+  if (prepared?.error || (prepared && !prepared.pkg)) {
+    logMessage('ERROR', prepared.error ?? 'Could not prepare the action package');
+    return;
+  }
   isPreviewing.value = true;
-  await runner.preview(pkg, config.value, extraSteps);
+  await runner.preview(prepared?.pkg ?? pkg, config.value, extraSteps);
   isPreviewing.value = false;
   status.value = undefined;
 }
@@ -138,9 +165,14 @@ async function onPreviewClick() {
 function onExecuteClick() {
   logScrolling.value = true;
   clearLog();
+  const prepared = preparePackage?.(config.value);
+  if (prepared?.error || (prepared && !prepared.pkg)) {
+    logMessage('ERROR', prepared.error ?? 'Could not prepare the action package');
+    return;
+  }
   actReady.value = false;
   skipReady.value = false;
-  runner.execute(pkg, config.value, extraSteps);
+  runner.execute(prepared?.pkg ?? pkg, config.value, extraSteps);
 }
 
 function onCancelClick() {
@@ -174,9 +206,14 @@ function clearLog() {
   <div v-if="goingToSplit" />
   <div v-else :class="$style.root">
     <Header :class="$style.header">{{ pkg.global.name }}</Header>
-    <ConfigWindow v-if="shouldShowConfigure" :pkg="pkg" :config="config" :class="$style.mainWindow">
+    <ConfigWindow
+      v-if="shouldShowConfigure"
+      :pkg="pkg"
+      :config="config"
+      :fit-ship-store="fitShipStore"
+      :class="$style.mainWindow">
       <template v-if="$slots.extra" #extra>
-        <slot name="extra" />
+        <slot name="extra" :config="config" />
       </template>
     </ConfigWindow>
     <LogWindow v-else :messages="log" :scrolling="logScrolling" :class="$style.mainWindow" />
@@ -188,7 +225,10 @@ function clearLog() {
     </div>
     <ActionBar :class="$style.actionBar">
       <template v-if="shouldShowConfigure">
-        <PrunButton primary :disabled="!isValidConfig" @click="onConfigureApplyClick">
+        <PrunButton
+          primary
+          :disabled="!isValidConfig || !isExtraConfigValid"
+          @click="onConfigureApplyClick">
           APPLY
         </PrunButton>
       </template>
@@ -199,8 +239,14 @@ function clearLog() {
       </template>
       <template v-else-if="!isRunning">
         <PrunButton v-if="needsConfigure" primary @click="onConfigureClick">CONFIGURE</PrunButton>
-        <PrunButton primary @click="onPreviewClick">PREVIEW</PrunButton>
-        <PrunButton primary :class="$style.executeButton" @click="onExecuteClick">
+        <PrunButton primary :disabled="!isExtraConfigValid" @click="onPreviewClick"
+          >PREVIEW</PrunButton
+        >
+        <PrunButton
+          primary
+          :disabled="!isExtraConfigValid"
+          :class="$style.executeButton"
+          @click="onExecuteClick">
           EXECUTE
         </PrunButton>
       </template>

@@ -7,6 +7,7 @@ import { POST_AGENT } from '@src/features/XIT/ACT/action-steps/POST_AGENT';
 import { LOG_JSON } from '@src/features/XIT/ACT/action-steps/LOG_JSON';
 import { OPEN_SFC } from '@src/features/XIT/ACT/action-steps/OPEN_SFC';
 import { OPEN_BRA } from '@src/features/XIT/ACT/action-steps/OPEN_BRA';
+import { VERIFY_CARGO } from '@src/features/XIT/ACT/action-steps/VERIFY_CARGO';
 import { atSameLocation, deserializeStorage } from '@src/features/XIT/ACT/actions/utils';
 import { Config, CX_BUY_ONLY_DEST } from '@src/features/XIT/ACT/actions/mtra/config';
 import { AssertFn, configurableValue } from '@src/features/XIT/ACT/shared-types';
@@ -108,6 +109,7 @@ act.addAction<Config>({
               to: dest.id,
               ticker,
               amount: materials[ticker].quantity,
+              requireFull: data.requireFull,
             }),
           );
         }
@@ -115,6 +117,9 @@ act.addAction<Config>({
     }
 
     async function emitFinishSteps() {
+      if (dest.type === 'SHIP_STORE' && data.expectedCargo) {
+        emitStep(VERIFY_CARGO({ shipId: dest.addressableId, expected: data.expectedCargo }));
+      }
       // Post a single-group offload; the multi-group branch below handles DSP stops.
       if (
         dest.type === 'SHIP_STORE' &&

@@ -1,6 +1,7 @@
 import '@src/features/XIT/ACT/actions/cx-buy/cx-buy';
 import '@src/features/XIT/ACT/actions/mtra/mtra';
 import '@src/features/XIT/ACT/material-groups/resupply/resupply';
+import '@src/features/XIT/ACT/material-groups/manual/manual';
 
 import BurnActWindow from '@src/features/XIT/BURN/BurnActWindow.vue';
 import { sitesStore } from '@src/infrastructure/prun-api/data/sites';

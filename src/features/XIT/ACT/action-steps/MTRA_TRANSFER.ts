@@ -6,6 +6,7 @@ import { materialsStore } from '@src/infrastructure/prun-api/data/materials';
 import { watchWhile } from '@src/utils/watch';
 import { storagesStore } from '@src/infrastructure/prun-api/data/storage';
 import { AssertFn } from '@src/features/XIT/ACT/shared-types';
+import { sumBy } from '@src/utils/sum-by';
 
 interface Data {
   from: string;
@@ -16,6 +17,8 @@ interface Data {
   loadAll?: boolean;
   // Prefill data.amount and delay ACT for 2s so the player can adjust it in MTRA.
   playerReview?: boolean;
+  // Stop the package if the full planned amount cannot be loaded.
+  requireFull?: boolean;
 }
 
 export const MTRA_TRANSFER = act.addActionStep<Data>({
@@ -39,13 +42,16 @@ export const MTRA_TRANSFER = act.addActionStep<Data>({
     const { data, log, setStatus, requestTile, waitAct, waitActionFeedback, complete, skip, fail } =
       ctx;
     const assert: AssertFn = ctx.assert;
-    const { ticker, amount, loadAll, playerReview } = data;
+    const { ticker, amount, loadAll, playerReview, requireFull } = data;
     const from = storagesStore.getById(data.from);
     assert(from, 'Origin inventory not found');
     const to = storagesStore.getById(data.to);
     assert(to, 'Destination inventory not found');
 
     if (!from.items.find(x => x.quantity?.material.ticker === ticker)) {
+      if (requireFull) {
+        fail(`${ticker} is not present in the origin inventory`);
+      }
       log.warning(`No ${ticker} was transferred (not present in origin)`);
       skip();
       return;
@@ -53,6 +59,9 @@ export const MTRA_TRANSFER = act.addActionStep<Data>({
 
     // Data.amount is only a snapshot estimate for loadAll totals/description.
     if (!loadAll && amount <= 0) {
+      if (requireFull) {
+        fail(`Invalid planned amount for ${ticker}`);
+      }
       log.warning(`No ${ticker} was transferred (target amount is 0)`);
       skip();
       return;
@@ -66,6 +75,9 @@ export const MTRA_TRANSFER = act.addActionStep<Data>({
     const canFitWeight = to.weightCapacity - to.weightLoad - material.weight + epsilon >= 0;
     const canFitVolume = to.volumeCapacity - to.volumeLoad - material.volume + epsilon >= 0;
     if (!canFitWeight || !canFitVolume) {
+      if (requireFull) {
+        fail(`${ticker} does not fit in the destination inventory`);
+      }
       log.warning(`No ${ticker} was transferred (no space)`);
       skip();
       return;
@@ -104,6 +116,9 @@ export const MTRA_TRANSFER = act.addActionStep<Data>({
       changeInputValue(amountInput, maxAmount.toString());
     } else {
       if (amount > maxAmount) {
+        if (requireFull) {
+          fail(`Cannot load all ${amount} ${ticker}; only ${maxAmount} fit or are available`);
+        }
         if (maxAmount === 0) {
           log.warning(`No ${ticker} was transferred (nothing available)`);
           skip();
@@ -139,10 +154,9 @@ export const MTRA_TRANSFER = act.addActionStep<Data>({
     const destinationAmount = computed(() => {
       const store = storagesStore.getById(data.to);
       return (
-        store?.items
-          .map(x => x.quantity ?? undefined)
-          .filter(x => x !== undefined)
-          .find(x => x.material.ticker === ticker)?.amount ?? 0
+        sumBy(store?.items, x =>
+          x.quantity?.material.ticker === ticker ? x.quantity.amount : 0,
+        ) ?? 0
       );
     });
     const currentAmount = destinationAmount.value;
@@ -150,6 +164,10 @@ export const MTRA_TRANSFER = act.addActionStep<Data>({
     await waitActionFeedback(tile);
     setStatus('Waiting for storage update...');
     await watchWhile(() => destinationAmount.value === currentAmount);
+
+    if (requireFull && destinationAmount.value + epsilon < currentAmount + amount) {
+      fail(`Only ${destinationAmount.value - currentAmount} of ${amount} ${ticker} was loaded`);
+    }
 
     complete();
   },

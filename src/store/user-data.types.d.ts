@@ -104,6 +104,8 @@ declare namespace UserData {
     offloadGroups?: string[];
     agentGroups?: string[];
     finishOnly?: boolean;
+    requireFull?: boolean;
+    expectedCargo?: Record<string, number>;
     // Group names whose offload packages need a braPlanet repair reminder.
     repairGroups?: string[];
     // Open BRA for this planet after transfers.
