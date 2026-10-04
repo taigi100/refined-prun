@@ -71,6 +71,7 @@ declare namespace UserData {
     exclusions?: string[];
     consumablesOnly?: boolean;
     materialFilter?: 'All' | 'Workforce' | 'Production';
+    fitSelectedDaysByDefault?: boolean;
   }
 
   type ActionType = 'CX Buy' | 'MTRA' | 'Refuel' | 'CONT Ship' | 'CONT Trade' | 'GovBurn Data';
@@ -106,6 +107,7 @@ declare namespace UserData {
     finishOnly?: boolean;
     requireFull?: boolean;
     expectedCargo?: Record<string, number>;
+    allowEmptyFinish?: boolean;
     // Group names whose offload packages need a braPlanet repair reminder.
     repairGroups?: string[];
     // Open BRA for this planet after transfers.

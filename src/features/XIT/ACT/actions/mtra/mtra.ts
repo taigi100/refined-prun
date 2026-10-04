@@ -60,9 +60,14 @@ act.addAction<Config>({
     ];
 
     // Assert-narrowed locals (rebound so nested helpers keep the non-undefined type).
-    const maybeMaterials = await getMaterialGroup(data.group);
-    assert(maybeMaterials, 'Invalid material group');
-    const materials = maybeMaterials;
+    const emptyFinishOnly =
+      data.allowEmptyFinish &&
+      data.finishOnly &&
+      data.expectedCargo !== undefined &&
+      Object.keys(data.expectedCargo).length === 0;
+    const maybeMaterials = emptyFinishOnly ? {} : await getMaterialGroup(data.group);
+    assert(maybeMaterials !== undefined || emptyFinishOnly === true, 'Invalid material group');
+    const materials = maybeMaterials ?? {};
 
     const serializedOrigin = data.origin === configurableValue ? config?.origin : data.origin;
     const maybeOrigin = deserializeStorage(serializedOrigin);

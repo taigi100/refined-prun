@@ -36,7 +36,11 @@ if (data.planet === configurableValue && !config.planet) {
   config.planet = planets.value[0];
 }
 
-if (data.days === configurableValue && config.days === undefined) {
+if (
+  data.days === configurableValue &&
+  config.days === undefined &&
+  !data.fitSelectedDaysByDefault
+) {
   const seedPlanet = data.planet === configurableValue ? config.planet : data.planet;
   const seedSite = seedPlanet ? sitesStore.getByPlanetNaturalIdOrName(seedPlanet) : undefined;
   const seedNaturalId = seedSite ? getEntityNaturalIdFromAddress(seedSite.address) : undefined;
@@ -81,16 +85,28 @@ const totals = computed(() => {
 
 // Binary search for the maximum duration whose bill fits the ship.
 function fitToShip(maxWeight: number, maxVolume: number) {
+  const days = getFittingDays(maxWeight, maxVolume);
+  if (days === undefined) {
+    return;
+  }
+  config.days = days;
+  delete config.defaultFitDays;
+}
+
+function getFittingDays(maxWeight: number, maxVolume: number) {
   const planet = effectivePlanet.value;
   if (!planet) {
-    return;
+    return undefined;
   }
   // Quick check that burn data is loaded.
   if (!computeResupplyBill(data, planet, 1, materialFilter.value)) {
-    return;
+    return undefined;
   }
-  config.days = maxFittingDays(days => {
-    const entries = computeResupplyBill(data, planet, days, materialFilter.value)!;
+  return maxFittingDays(days => {
+    const entries = computeResupplyBill(data, planet, days, materialFilter.value);
+    if (!entries) {
+      return false;
+    }
     const t = billTotals(entries);
     return t.weight <= maxWeight && t.volume <= maxVolume;
   });
@@ -106,6 +122,36 @@ const shipFree = computed(() => {
     weight: shipStore.weightCapacity - shipStore.weightLoad,
     volume: shipStore.volumeCapacity - shipStore.volumeLoad,
   };
+});
+
+const defaultFitDays = computed(() => {
+  if (!data.fitSelectedDaysByDefault) {
+    return undefined;
+  }
+  const fit = shipFree.value ? getFittingDays(shipFree.value.weight, shipFree.value.volume) : 14;
+  return fit === undefined ? 14 : Math.min(fit, 14);
+});
+
+watch(
+  defaultFitDays,
+  days => {
+    if (
+      days !== undefined &&
+      (config.days === undefined || config.days === config.defaultFitDays)
+    ) {
+      config.days = days;
+      config.defaultFitDays = days;
+    }
+  },
+  { immediate: true },
+);
+
+const daysInput = computed({
+  get: () => config.days,
+  set: value => {
+    config.days = value;
+    delete config.defaultFitDays;
+  },
 });
 
 const shipName = computed(() => {
@@ -125,8 +171,12 @@ const shipName = computed(() => {
     <Active
       v-if="data.days === configurableValue"
       label="Days"
-      tooltip="The number of days of supplies to refill the planet with.">
-      <NumberInput v-model="config.days" float />
+      :tooltip="
+        data.fitSelectedDaysByDefault
+          ? 'Defaults to the smaller of FIT Selected and 14 days.'
+          : 'The number of days of supplies to refill the planet with.'
+      ">
+      <NumberInput v-model="daysInput" float />
     </Active>
   </form>
   <Active label="Materials" tooltip="Which materials to include in the resupply group.">
@@ -155,7 +205,12 @@ const shipName = computed(() => {
     </PrunButton>
     <div v-if="shipName && shipFree" :class="$style.fitSelected">
       <span>Fit Selected</span>
-      <PrunButton primary :disabled="!canFit" @click="fitToShip(shipFree.weight, shipFree.volume)">
+      <span v-if="data.fitSelectedDaysByDefault">{{ shipName.slice(0, 12) }}</span>
+      <PrunButton
+        v-else
+        primary
+        :disabled="!canFit"
+        @click="fitToShip(shipFree.weight, shipFree.volume)">
         {{ shipName.slice(0, 12) }}
       </PrunButton>
     </div>

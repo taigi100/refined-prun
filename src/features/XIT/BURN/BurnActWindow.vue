@@ -1,5 +1,6 @@
 <script setup lang="ts">
 import Active from '@src/components/forms/Active.vue';
+import Passive from '@src/components/forms/Passive.vue';
 import PrunLink from '@src/components/PrunLink.vue';
 import RadioItem from '@src/components/forms/RadioItem.vue';
 import SelectInput from '@src/components/forms/SelectInput.vue';
@@ -25,7 +26,10 @@ import { useXitParameters } from '@src/hooks/use-xit-parameters';
 import { fixed0, fixed02 } from '@src/utils/format';
 import { sumBy } from '@src/utils/sum-by';
 import { allocateShips, type ShipAllocation, type ShipCargoTarget } from './ship-allocation';
+import { getShipSize } from '@src/core/ship-sizes';
+import { userData } from '@src/store/user-data';
 
+const { pickup = false } = defineProps<{ pickup?: boolean }>();
 const naturalId = useXitParameters().join(' ');
 useMinBufferHeight();
 
@@ -37,6 +41,7 @@ const generateReturnJson = ref(false);
 const agent = ref(false);
 const origin = ref('Hortus Station Warehouse');
 const selectedShipIds = ref<string[]>([]);
+const pickupSize = computed(() => getShipSize(userData.settings.burn.planetPickup[naturalId]));
 
 const originOptions = computed(() =>
   [...(storagesStore.nonFuelStores.value ?? [])]
@@ -48,16 +53,12 @@ const originStore = computed(() => deserializeStorage(origin.value));
 watch(
   originOptions,
   options => {
-    if (options.length > 0 && !options.some(x => x.value === origin.value)) {
+    if (!pickup && options.length > 0 && !options.some(x => x.value === origin.value)) {
       origin.value = options[0].value;
     }
   },
   { immediate: true },
 );
-watch(origin, () => {
-  selectedShipIds.value = [];
-});
-
 const availableShips = computed(() => {
   const source = originStore.value;
   if (!source) {
@@ -76,6 +77,22 @@ const availableShips = computed(() => {
       (a.ship.name ?? a.ship.registration).localeCompare(b.ship.name ?? b.ship.registration),
     );
 });
+const pickupTarget = computed(() => {
+  const size = pickupSize.value;
+  if (!pickup || !size) {
+    return undefined;
+  }
+  return availableShips.value.find(
+    ({ store }) => store.weightCapacity === size.weight && store.volumeCapacity === size.volume,
+  );
+});
+watch(
+  [pickupTarget, origin],
+  () => {
+    selectedShipIds.value = pickup ? (pickupTarget.value ? [pickupTarget.value.ship.id] : []) : [];
+  },
+  { immediate: true },
+);
 const fitShipStore = computed(() =>
   selectedShipIds.value.length === 1
     ? availableShips.value.find(x => x.ship.id === selectedShipIds.value[0])?.store
@@ -103,6 +120,8 @@ const pkg = computed<UserData.ActionPackageData>(() => ({
       planet: planetName.value,
       days: configurableValue,
       useBaseInv: true,
+      materialFilter: pickup ? 'Production' : undefined,
+      fitSelectedDaysByDefault: pickup,
     },
   ],
   actions: [
@@ -124,6 +143,12 @@ function planFor(config: ActionPackageConfig): {
   const source = originStore.value;
   if (!source || source.locked) {
     return { error: 'Select an unlocked source inventory' };
+  }
+  if (pickup && !pickupSize.value) {
+    return { error: 'No pickup ship size is configured for this planet' };
+  }
+  if (pickup && !pickupTarget.value) {
+    return { error: `No available ${pickupSize.value?.id ?? ''} ship at Hortus Station` };
   }
   if (selectedShipIds.value.length === 0) {
     return { error: 'Select at least one ship' };
@@ -153,7 +178,17 @@ function planFor(config: ActionPackageConfig): {
     return { error: 'Planet burn data is not loaded' };
   }
   if (Object.keys(bill).length === 0) {
-    return { error: 'The base already has the requested supplies' };
+    if (!pickup) {
+      return { error: 'The base already has the requested supplies' };
+    }
+    return {
+      allocations: (targets as ShipCargoTarget[]).map(target => ({
+        target,
+        materials: {},
+        weight: 0,
+        volume: 0,
+      })),
+    };
   }
   for (const ticker of Object.keys(bill)) {
     if (!materialsStore.getByTicker(ticker)) {
@@ -228,7 +263,8 @@ function preparePackage(config: ActionPackageConfig) {
       planet: naturalId,
       materials: allocation.materials,
     });
-    if (!buyConfig.skip) {
+    const hasMaterials = Object.keys(allocation.materials).length > 0;
+    if (!buyConfig.skip && hasMaterials) {
       actions.push({
         type: 'CX Buy',
         name: `Buy ${ship.registration}`,
@@ -237,15 +273,17 @@ function preparePackage(config: ActionPackageConfig) {
         useCXInv: true,
       });
     }
-    actions.push({
-      type: 'MTRA',
-      name: group,
-      group,
-      origin: origin.value,
-      dest: destination,
-      noSfc: true,
-      requireFull: true,
-    });
+    if (hasMaterials) {
+      actions.push({
+        type: 'MTRA',
+        name: group,
+        group,
+        origin: origin.value,
+        dest: destination,
+        noSfc: true,
+        requireFull: true,
+      });
+    }
     const expectedCargo: Record<string, number> = {};
     for (const [ticker, amount] of Object.entries(allocation.materials)) {
       const existing = sumBy(store.items, x =>
@@ -261,8 +299,9 @@ function preparePackage(config: ActionPackageConfig) {
       dest: destination,
       finishOnly: true,
       expectedCargo,
-      postToAgent: agent.value,
-      printOffloadJson: generateReturnJson.value,
+      allowEmptyFinish: pickup && !hasMaterials,
+      postToAgent: hasMaterials && agent.value,
+      printOffloadJson: hasMaterials && generateReturnJson.value,
       sfcDestination: naturalId,
     });
   }
@@ -293,13 +332,26 @@ function allocationText(allocation: ShipAllocation) {
     :fit-ship-store="fitShipStore"
     :prepare-package="preparePackage">
     <template #extra="{ config }">
-      <Active label="From">
+      <Passive v-if="pickup" label="From">Hortus Station Warehouse</Passive>
+      <Active v-else label="From">
         <SelectInput v-model="origin" :options="originOptions" />
       </Active>
       <div :class="$style.ships">
-        <div>Ships at source (select in load order)</div>
+        <div v-if="pickup">Pickup ship</div>
+        <div v-else>Ships at source (select in load order)</div>
         <div v-if="availableShips.length === 0">No ships available at this location.</div>
-        <div v-for="target in availableShips" :key="target.ship.id" :class="$style.shipRow">
+        <div v-else-if="pickup && !pickupTarget">
+          No available ship has {{ pickupSize?.label ?? 'the configured pickup capacity' }} cargo
+          capacity.
+        </div>
+        <div v-else-if="pickup && pickupTarget" :class="$style.shipRow">
+          {{ pickupTarget.ship.name ?? pickupTarget.ship.registration }}
+          ({{ pickupSize?.label }})
+        </div>
+        <div
+          v-for="target in pickup ? [] : availableShips"
+          :key="target.ship.id"
+          :class="$style.shipRow">
           <RadioItem
             :model-value="selectedShipIds.includes(target.ship.id)"
             horizontal

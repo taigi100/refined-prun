@@ -4,4 +4,5 @@ export interface Config {
   planet: string;
   days?: number;
   materialFilter?: MaterialFilter;
+  defaultFitDays?: number;
 }

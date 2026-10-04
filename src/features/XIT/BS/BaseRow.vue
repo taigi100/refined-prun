@@ -251,13 +251,14 @@ const pickupAlarm = computed(() => getPickupAlarm(siteId));
           data-tooltip-position="top">
           <span :class="$style.statusNum">{{ fillDaysText }}</span>
         </div>
-        <div
+        <PrunButton
           v-if="pickupAlarm"
           :class="[C.ProgressBar.progress, $style.pickupBox, C.Workforces.daysSupplied]"
           :data-tooltip="pickupAlarm.reason"
-          data-tooltip-position="top">
+          data-tooltip-position="top"
+          @click="showBuffer(`XIT PICKUPACT ${naturalId}`)">
           <span :class="fa.solid">{{ '\uf135' }}</span>
-        </div>
+        </PrunButton>
       </div>
     </td>
     <td v-if="showWar" :class="$style.invCell">
@@ -392,6 +393,8 @@ const pickupAlarm = computed(() => getPickupAlarm(siteId));
   margin: 0;
   font-size: 10px;
   line-height: 1;
+  border: 0;
+  cursor: pointer;
 }
 
 .burnExpandCell {
