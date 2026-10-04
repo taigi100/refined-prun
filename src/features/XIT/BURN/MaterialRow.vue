@@ -8,16 +8,30 @@ import { getBurnThresholds } from '@src/features/XIT/BURN/utils';
 import PrunButton from '@src/components/PrunButton.vue';
 import { showBuffer } from '@src/infrastructure/prun-ui/buffers';
 
-const { alwaysVisible, burn, material, naturalId } = defineProps<{
+const { alwaysVisible, burn, material, naturalId, additionalStorage } = defineProps<{
   alwaysVisible?: boolean;
   burn: MaterialBurn;
   material: PrunApi.Material;
   naturalId?: string;
+  additionalStorage?: PrunApi.Store;
 }>();
 
 const production = computed(() => burn.dailyAmount);
+const additionalInventory = computed(() => {
+  if (!additionalStorage || additionalStorage.locked) {
+    return 0;
+  }
+
+  return additionalStorage.items.reduce((total, item) => {
+    const quantity = item.quantity;
+    return item.type === 'INVENTORY' && quantity?.material.ticker === material.ticker
+      ? total + quantity.amount
+      : total;
+  }, 0);
+});
 const invAmount = computed(() => {
-  const amount = burn.inventory + burn.inboundInventory + burn.remainingAllocation;
+  const amount =
+    burn.inventory + burn.inboundInventory + burn.remainingAllocation + additionalInventory.value;
   // Truncate, don't round, so the shown amount never exceeds what you hold.
   if (amount >= 100) {
     return trunc0(amount);
@@ -36,7 +50,11 @@ const invFraction = computed(() => {
   return dot === -1 ? '' : invAmount.value.slice(dot);
 });
 const isInf = computed(() => production.value >= 0);
-const days = computed(() => (isInf.value ? Number.POSITIVE_INFINITY : burn.daysLeft));
+const days = computed(() =>
+  isInf.value
+    ? Number.POSITIVE_INFINITY
+    : burn.daysLeft + additionalInventory.value / -production.value,
+);
 
 const thresholds = computed(() => getBurnThresholds(days.value));
 

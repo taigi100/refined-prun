@@ -249,13 +249,30 @@ export function calculatePlanetBurn(
   return burnValues;
 }
 
-// Days left of the most urgent net-consumed material.
-export function getMinDaysLeft(burn: BurnValues) {
+// Days left of the most urgent net-consumed material, with an optional unlocked store.
+export function getMinDaysLeft(burn: BurnValues, additionalStorage?: PrunApi.Store) {
   let days = 1000;
+
+  const additionalInventory = new Map<string, number>();
+  if (additionalStorage && !additionalStorage.locked) {
+    for (const item of additionalStorage.items) {
+      const quantity = item.quantity;
+      if (item.type !== 'INVENTORY' || !quantity) {
+        continue;
+      }
+
+      const ticker = quantity.material.ticker;
+      additionalInventory.set(ticker, (additionalInventory.get(ticker) ?? 0) + quantity.amount);
+    }
+  }
+
   for (const key of Object.keys(burn)) {
     const mat = burn[key];
-    if (mat.dailyAmount < 0 && mat.daysLeft < days) {
-      days = mat.daysLeft;
+    if (mat.dailyAmount < 0) {
+      const daysLeft = mat.daysLeft + (additionalInventory.get(key) ?? 0) / -mat.dailyAmount;
+      if (daysLeft < days) {
+        days = daysLeft;
+      }
     }
   }
   return days;

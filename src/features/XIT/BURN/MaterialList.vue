@@ -3,7 +3,10 @@ import { PlanetBurn } from '@src/core/burn';
 import MaterialRow from '@src/features/XIT/BURN/MaterialRow.vue';
 import { getSortedTickers } from '@src/features/XIT/BURN/utils';
 
-const { burn } = defineProps<{ burn: PlanetBurn }>();
+const { burn, additionalStorage } = defineProps<{
+  burn: PlanetBurn;
+  additionalStorage?: PrunApi.Store;
+}>();
 
 const sorted = computed(() => getSortedTickers(burn));
 </script>
@@ -14,5 +17,6 @@ const sorted = computed(() => getSortedTickers(burn));
     :key="material.id"
     :burn="burn.burn[material.ticker]"
     :material="material"
-    :natural-id="burn.naturalId" />
+    :natural-id="burn.naturalId"
+    :additional-storage="additionalStorage" />
 </template>

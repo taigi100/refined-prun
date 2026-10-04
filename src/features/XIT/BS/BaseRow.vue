@@ -62,8 +62,16 @@ function openCmdMenuItem(command: string) {
   showBuffer(command);
 }
 
+const warehouse = computed(() => warehousesStore.getByEntityNaturalId(naturalId));
+const warehouseStore = computed(() =>
+  storagesStore
+    .getByAddressableId(warehouse.value?.warehouseId)
+    ?.find(x => x.type === 'WAREHOUSE_STORE'),
+);
 const burn = computed(() => getPlanetBurn(siteId));
-const days = computed(() => (burn.value ? countDays(burn.value.burn) : undefined));
+const days = computed(() =>
+  burn.value ? countDays(burn.value.burn, warehouseStore.value) : undefined,
+);
 const expandedBurns = useTileState('expandedBurns', [] as string[]);
 const isBurnExpanded = computed(() => expandedBurns.value.includes(naturalId));
 const columnCount = computed(
@@ -174,13 +182,6 @@ const barAlarmReason = computed(() =>
 );
 
 const pickupAlarm = computed(() => getPickupAlarm(siteId));
-
-const warehouse = computed(() => warehousesStore.getByEntityNaturalId(naturalId));
-const warehouseStore = computed(() =>
-  storagesStore
-    .getByAddressableId(warehouse.value?.warehouseId)
-    ?.find(x => x.type === 'WAREHOUSE_STORE'),
-);
 </script>
 
 <template>
@@ -280,7 +281,7 @@ const warehouseStore = computed(() =>
           </tr>
         </thead>
         <tbody>
-          <MaterialList :burn="burn" />
+          <MaterialList :burn="burn" :additional-storage="warehouseStore" />
         </tbody>
       </table>
     </td>

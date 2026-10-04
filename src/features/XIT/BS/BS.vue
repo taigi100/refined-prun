@@ -7,6 +7,7 @@ import BaseRow from '@src/features/XIT/BS/BaseRow.vue';
 import fa from '@src/utils/font-awesome.module.css';
 import { sitesStore } from '@src/infrastructure/prun-api/data/sites';
 import { storagesStore } from '@src/infrastructure/prun-api/data/storage';
+import { warehousesStore } from '@src/infrastructure/prun-api/data/warehouses';
 import {
   getEntityNameFromAddress,
   getEntityNaturalIdFromAddress,
@@ -82,12 +83,18 @@ const bases = computed<BaseEntry[] | undefined>(() => {
   const entries = sites
     .map(site => {
       const burn = getPlanetBurn(site.siteId);
+      const naturalId = getEntityNaturalIdFromAddress(site.address) ?? '';
+      const warehouse = warehousesStore.getByEntityNaturalId(naturalId);
+      const warehouseStore = storagesStore
+        .getByAddressableId(warehouse?.warehouseId)
+        ?.find(x => x.type === 'WAREHOUSE_STORE');
+
       return {
         siteId: site.siteId,
-        naturalId: getEntityNaturalIdFromAddress(site.address) ?? '',
+        naturalId,
         planetName: getEntityNameFromAddress(site.address) ?? '',
         storeId: storagesStore.getByAddressableId(site.siteId)?.[0]?.id ?? '',
-        days: burn ? countDays(burn.burn) : undefined,
+        days: burn ? countDays(burn.burn, warehouseStore) : undefined,
         repairDays: getPlanetRepairAge(site.siteId, now),
       };
     })
