@@ -13,7 +13,8 @@ import { getPlanetProduction } from '@src/core/production';
 import { warehousesStore } from '@src/infrastructure/prun-api/data/warehouses';
 import { storagesStore } from '@src/infrastructure/prun-api/data/storage';
 import { getRepairOffset, getRepairThreshold } from '@src/core/buildings';
-import { getPlanetRepairAge } from '@src/core/repair';
+import { getPlanetRepairAge, getPlanetRepairBill } from '@src/core/repair';
+import { sitesStore } from '@src/infrastructure/prun-api/data/sites';
 import { timestampEachMinute } from '@src/utils/dayjs';
 import { planetContextMenu } from '@src/components/planet-context-menu/planet-context-menu';
 import fa from '@src/utils/font-awesome.module.css';
@@ -182,6 +183,33 @@ const barAlarmReason = computed(() =>
 );
 
 const pickupAlarm = computed(() => getPickupAlarm(siteId));
+
+const baseStore = computed(() =>
+  storagesStore.getByAddressableId(siteId)?.find(x => x.type === 'STORE'),
+);
+const repairMaterialsReady = computed(() => {
+  const site = sitesStore.getById(siteId);
+  const store = baseStore.value;
+  if (!site || !store || store.locked) {
+    return false;
+  }
+
+  const bill = getPlanetRepairBill(site);
+  if (bill.length === 0) {
+    return false;
+  }
+
+  const available = new Map<string, number>();
+  for (const item of store.items) {
+    if (item.type !== 'INVENTORY' || !item.quantity) {
+      continue;
+    }
+    const ticker = item.quantity.material.ticker;
+    available.set(ticker, (available.get(ticker) ?? 0) + item.quantity.amount);
+  }
+
+  return bill.every(({ material, amount }) => (available.get(material.ticker) ?? 0) >= amount);
+});
 </script>
 
 <template>
@@ -258,6 +286,15 @@ const pickupAlarm = computed(() => getPickupAlarm(siteId));
           data-tooltip-position="top"
           @click="showBuffer(`XIT PICKUPACT ${naturalId}`)">
           <span :class="fa.solid">{{ '\uf135' }}</span>
+        </PrunButton>
+        <PrunButton
+          v-if="repairMaterialsReady"
+          :class="[C.ProgressBar.progress, $style.pickupBox, C.Workforces.daysSupplied]"
+          data-tooltip="Repair materials ready. Open BRA to repair buildings."
+          data-tooltip-position="top"
+          :aria-label="`Open BRA ${naturalId} to repair buildings`"
+          @click="showBuffer(`BRA ${naturalId}`)">
+          <span :class="fa.solid">{{ '\uf0ad' }}</span>
         </PrunButton>
       </div>
     </td>
