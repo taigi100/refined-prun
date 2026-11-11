@@ -120,7 +120,7 @@ const pkg = computed<UserData.ActionPackageData>(() => ({
       planet: planetName.value,
       days: configurableValue,
       useBaseInv: true,
-      materialFilter: pickup ? 'Production' : undefined,
+      materialFilter: pickup ? 'All' : undefined,
       fitSelectedDaysByDefault: pickup,
     },
   ],
