@@ -4,6 +4,7 @@ import { getStarNaturalId, starsStore } from '@src/infrastructure/prun-api/data/
 import { stationsStore } from '@src/infrastructure/prun-api/data/stations';
 import { getMaterialName } from '@src/infrastructure/prun-ui/i18n';
 import { sleep } from './utils/sleep';
+import { onNodeTreeMutation } from '@src/utils/on-node-tree-mutation';
 
 // Download a file containing fileData with fileName
 export function downloadFile(fileData, fileName, isJSON: boolean = true) {
@@ -68,23 +69,32 @@ export async function selectMaterialInMaterialSelector(baseElement: Element, tic
   }
   const input = await $(container, 'input');
 
-  const suggestionsContainer = await $(container, C.MaterialSelector.suggestionsContainer);
   focusElement(input);
   changeInputValue(input, ticker);
 
-  const suggestionsList = await $(container, C.MaterialSelector.suggestionsList);
-  suggestionsContainer.style.display = 'none';
-  const match = _$$(suggestionsList, C.MaterialSelector.suggestionEntry).find(
+  const suggestionsContainer = await new Promise<HTMLElement>(resolve => {
+    const findSuggestions = () => {
+      const suggestions = input.ownerDocument.getElementById(input.getAttribute('aria-controls')!);
+      if (!suggestions) {
+        return;
+      }
+      resolve(suggestions);
+      return true;
+    };
+    if (!findSuggestions()) {
+      onNodeTreeMutation(input.ownerDocument.documentElement, findSuggestions);
+    }
+  });
+  const suggestionsList = await $(suggestionsContainer, C.suggestions.suggestionsList);
+  const match = _$$(suggestionsList, C.suggestions.suggestion).find(
     x => _$(x, C.ColoredIcon.label)?.textContent === ticker,
   );
 
   if (!match) {
-    suggestionsContainer.style.display = '';
     return false;
   }
 
   await clickElement(match);
-  suggestionsContainer.style.display = '';
   return true;
 }
 

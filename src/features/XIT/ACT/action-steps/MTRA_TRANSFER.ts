@@ -103,8 +103,7 @@ export const MTRA_TRANSFER = act.addActionStep<Data>({
       Number(x.textContent ?? 0),
     );
     const maxAmount = Math.max(...sliderNumbers);
-    const allInputs = _$$(tile.anchor, 'input');
-    const amountInput = allInputs[1];
+    const amountInput = _$$(tile.anchor, 'input').find(x => x.name === 'amount');
     assert(amountInput !== undefined, 'Amount input not found');
 
     if (loadAll) {

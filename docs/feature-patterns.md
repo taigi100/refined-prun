@@ -250,6 +250,10 @@ subscribe($$(tile.anchor, C.InventoriesListContainer.filter), async filter => {
 });
 ```
 
+### Material Selection
+
+Use `selectMaterialInMaterialSelector()` from `@src/util` to select a material. The helper focuses the search input and enters the ticker before it waits for suggestions. Find the suggestion container by the input's `aria-controls` ID in its owner document; do not require the list to be inside the selector. Use `C.suggestions.suggestionsList` and `C.suggestions.suggestion` to find the list and its options. Match the exact ticker and click the option element.
+
 ### Choosing the Right Function
 
 ```
