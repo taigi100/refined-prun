@@ -166,7 +166,7 @@ watch([showCmds, filteredBases], ([showCommands, bases]) => {
 <template>
   <LoadingSpinner v-if="bases === undefined" />
   <template v-else>
-    <div :class="C.ComExOrdersPanel.filter">
+    <div :class="[C.ComExOrdersPanel.filter, $style.filter]">
       <div :class="$style.searchContainer">
         Planet:&nbsp;
         <TextInput v-model="planetFilter" />
@@ -242,6 +242,12 @@ watch([showCmds, filteredBases], ([showCommands, bases]) => {
 </template>
 
 <style module>
+.filter {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+}
+
 .table {
   border-collapse: collapse;
 }
