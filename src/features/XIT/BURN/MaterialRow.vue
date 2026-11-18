@@ -7,6 +7,7 @@ import { useTileState } from '@src/features/XIT/BURN/tile-state';
 import { getBurnThresholds } from '@src/features/XIT/BURN/utils';
 import PrunButton from '@src/components/PrunButton.vue';
 import { showBuffer } from '@src/infrastructure/prun-ui/buffers';
+import { sumBy } from '@src/utils/sum-by';
 
 const { alwaysVisible, burn, material, naturalId, additionalStorage } = defineProps<{
   alwaysVisible?: boolean;
@@ -22,12 +23,12 @@ const additionalInventory = computed(() => {
     return 0;
   }
 
-  return additionalStorage.items.reduce((total, item) => {
+  return sumBy(additionalStorage.items, item => {
     const quantity = item.quantity;
     return item.type === 'INVENTORY' && quantity?.material.ticker === material.ticker
-      ? total + quantity.amount
-      : total;
-  }, 0);
+      ? quantity.amount
+      : 0;
+  });
 });
 const invAmount = computed(() => {
   const amount =
