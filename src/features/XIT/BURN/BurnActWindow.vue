@@ -40,7 +40,8 @@ const planetName = computed(() =>
 const generateReturnJson = ref(false);
 const agent = ref(false);
 const origin = ref('Hortus Station Warehouse');
-const selectedShipIds = ref<string[]>([]);
+const burnShipIds = ref<string[]>([]);
+const manualPickupShipId = ref<string>();
 const pickupSize = computed(() => getShipSize(userData.settings.burn.planetPickup[naturalId]));
 
 const originOptions = computed(() =>
@@ -86,23 +87,42 @@ const pickupTarget = computed(() => {
     ({ store }) => store.weightCapacity === size.weight && store.volumeCapacity === size.volume,
   );
 });
-watch(
-  [pickupTarget, origin],
-  () => {
-    selectedShipIds.value = pickup ? (pickupTarget.value ? [pickupTarget.value.ship.id] : []) : [];
-  },
-  { immediate: true },
+watch(origin, () => {
+  burnShipIds.value = [];
+});
+const manualPickupTarget = computed(() =>
+  availableShips.value.find(x => x.ship.id === manualPickupShipId.value),
 );
+watch(manualPickupTarget, target => {
+  if (!target) {
+    manualPickupShipId.value = undefined;
+  }
+});
+const selectedPickupTarget = computed(() => manualPickupTarget.value ?? pickupTarget.value);
+const showPickupChoices = computed(
+  () => pickup && (!pickupTarget.value || manualPickupTarget.value !== undefined),
+);
+const selectedShipIds = computed(() => {
+  if (!pickup) {
+    return burnShipIds.value;
+  }
+  const target = selectedPickupTarget.value;
+  return target ? [target.ship.id] : [];
+});
 const fitShipStore = computed(() =>
   selectedShipIds.value.length === 1
     ? availableShips.value.find(x => x.ship.id === selectedShipIds.value[0])?.store
     : undefined,
 );
 function setShipSelected(id: string, selected: boolean) {
-  if (selected && !selectedShipIds.value.includes(id)) {
-    selectedShipIds.value.push(id);
+  if (pickup) {
+    manualPickupShipId.value = selected ? id : undefined;
+    return;
+  }
+  if (selected && !burnShipIds.value.includes(id)) {
+    burnShipIds.value.push(id);
   } else if (!selected) {
-    selectedShipIds.value = selectedShipIds.value.filter(x => x !== id);
+    burnShipIds.value = burnShipIds.value.filter(x => x !== id);
   }
 }
 
@@ -144,14 +164,8 @@ function planFor(config: ActionPackageConfig): {
   if (!source || source.locked) {
     return { error: 'Select an unlocked source inventory' };
   }
-  if (pickup && !pickupSize.value) {
-    return { error: 'No pickup ship size is configured for this planet' };
-  }
-  if (pickup && !pickupTarget.value) {
-    return { error: `No available ${pickupSize.value?.id ?? ''} ship at Hortus Station` };
-  }
   if (selectedShipIds.value.length === 0) {
-    return { error: 'Select at least one ship' };
+    return { error: pickup ? 'Select a pickup ship' : 'Select at least one ship' };
   }
   const targets = selectedShipIds.value.map(id => availableShips.value.find(x => x.ship.id === id));
   if (targets.some(x => !x)) {
@@ -200,9 +214,8 @@ function planFor(config: ActionPackageConfig): {
     const missing = Object.entries(remaining)
       .map(([ticker, amount]) => `${ticker} ${fixed0(amount)}`)
       .join(', ');
-    return {
-      error: `Load plan does not fit. Try another ship order or add a ship. Remaining: ${missing}`,
-    };
+    const advice = pickup ? 'Reduce the supply days.' : 'Try another ship order or add a ship.';
+    return { error: `Load plan does not fit. ${advice} Remaining: ${missing}` };
   }
   const buyConfig = config.actions['CX Buy'] as { exchange?: string; skip?: boolean } | undefined;
   for (const allocation of allocations) {
@@ -340,16 +353,19 @@ function allocationText(allocation: ShipAllocation) {
         <div v-if="pickup">Pickup ship</div>
         <div v-else>Ships at source (select in load order)</div>
         <div v-if="availableShips.length === 0">No ships available at this location.</div>
-        <div v-else-if="pickup && !pickupTarget">
-          No available ship has {{ pickupSize?.label ?? 'the configured pickup capacity' }} cargo
-          capacity.
+        <div v-else-if="showPickupChoices && !pickupTarget">
+          {{
+            pickupSize
+              ? `No available ship matches ${pickupSize.label}.`
+              : 'No pickup ship size is configured.'
+          }}
         </div>
-        <div v-else-if="pickup && pickupTarget" :class="$style.shipRow">
+        <div v-else-if="pickupTarget && !showPickupChoices" :class="$style.shipRow">
           {{ pickupTarget.ship.name ?? pickupTarget.ship.registration }}
           ({{ pickupSize?.label }})
         </div>
         <div
-          v-for="target in pickup ? [] : availableShips"
+          v-for="target in !pickup || showPickupChoices ? availableShips : []"
           :key="target.ship.id"
           :class="$style.shipRow">
           <RadioItem
@@ -362,7 +378,7 @@ function allocationText(allocation: ShipAllocation) {
             {{ fixed02(target.store.weightCapacity - target.store.weightLoad) }}t,
             {{ fixed02(target.store.volumeCapacity - target.store.volumeLoad) }}m³ free
           </span>
-          <span v-if="selectedShipIds.includes(target.ship.id)">
+          <span v-if="!pickup && selectedShipIds.includes(target.ship.id)">
             #{{ selectedShipIds.indexOf(target.ship.id) + 1 }}
           </span>
         </div>
