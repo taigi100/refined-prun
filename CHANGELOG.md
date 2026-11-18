@@ -2,13 +2,34 @@
 
 ## Unreleased
 
+## 26.11.12
+
+### Added
+
+- `NOTS`: Added labels for ship route notifications (`nots-notification-type-label`)
+
 ### Changed
 
 - `XIT FLOW`: The default price is now VWAP7D for both buy and sell
 
+### Removed
+
+- `contd-upward-search-results`: The game now shows suggestions outside the buffer
+- `flt-hide-transponder`: The game no longer shows the transponder column
+
 ### Fixed
 
+- `CONTD`: Fixed the material "all" button getting stuck (`contd-fill-all-button`)
+- `CONTD`: Fixed contract template imports getting stuck during material selection (`contd-import-export`)
+- `CXO`: Fixed the "delete" button getting stuck (`cxo-delete-order-button`)
+- `CXOB`: Fixed the "del" button getting stuck (`cxob-delete-own-exchange-orders`)
+- `CXOS`: Fixed the "delete filled" button remaining visible while filters are collapsed (`cxos-hide-delete-filled`)
+- `CXPO`: Fixed the "del" button getting stuck (`cxpo-order-book`)
+- `FLT`: Fixed flight status icons centering (`flt-flight-status-icons`)
+- `FLT`: Fixed ship condition appearing in the wrong column (`flt-ship-condition`)
+- `XIT ACT`: Fixed MTRA and CONT actions getting stuck during material selection
 - `XIT STO`: Fixed text overflow in tooltips (`unclipped-tooltips`)
+- Fixed filter bar layout in XIT commands
 
 ## 26.9.16
 

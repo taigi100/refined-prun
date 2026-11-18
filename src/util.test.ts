@@ -6,7 +6,6 @@ const mocks = vi.hoisted(() => ({
   selectAll: vi.fn(),
   wait: vi.fn(),
   getById: vi.fn(),
-  observe: vi.fn(),
 }));
 
 vi.mock('@src/infrastructure/prun-api/data/materials', () => ({ materialsStore: {} }));
@@ -14,8 +13,6 @@ vi.mock('@src/infrastructure/prun-api/data/planets', () => ({ planetsStore: {} }
 vi.mock('@src/infrastructure/prun-api/data/stars', () => ({ starsStore: {} }));
 vi.mock('@src/infrastructure/prun-api/data/stations', () => ({ stationsStore: {} }));
 vi.mock('@src/infrastructure/prun-ui/i18n', () => ({ getMaterialName: vi.fn() }));
-vi.mock('@src/utils/sleep', () => ({ sleep: vi.fn() }));
-vi.mock('@src/utils/on-node-tree-mutation', () => ({ onNodeTreeMutation: mocks.observe }));
 vi.mock('@src/utils/select-dom', () => ({
   $: mocks.wait,
   _$: mocks.select,
@@ -23,9 +20,8 @@ vi.mock('@src/utils/select-dom', () => ({
 }));
 vi.mock('@src/infrastructure/prun-ui/prun-css', () => ({
   C: {
-    MaterialSelector: { container: 'material-selector', suggestionEntry: 'material-entry' },
+    MaterialSelector: { container: 'material-selector' },
     suggestions: {
-      suggestionsContainer: 'suggestions-container',
       suggestionsList: 'suggestions-list',
       suggestion: 'suggestion-option',
     },
@@ -36,7 +32,8 @@ vi.mock('@src/infrastructure/prun-ui/prun-css', () => ({
 class MaterialInput {
   text = '';
   events: string[] = [];
-  ownerDocument = { getElementById: mocks.getById, documentElement: {} };
+  isConnected = true;
+  ownerDocument = { getElementById: mocks.getById };
 
   getAttribute(name: string) {
     expect(name).toBe('aria-controls');
@@ -78,7 +75,7 @@ describe('selectMaterialInMaterialSelector', () => {
       const container = { classList: { contains: () => true } } as unknown as Element;
       const root = { classList: { contains: () => false } } as unknown as Element;
       const input = new MaterialInput();
-      const suggestions = { style: { display: '' } };
+      const suggestions = { style: { display: 'block' }, dispatchEvent: vi.fn() };
       const list = {};
       const wrong = { dispatchEvent: vi.fn() };
       const match = { dispatchEvent: vi.fn() };
@@ -88,7 +85,9 @@ describe('selectMaterialInMaterialSelector', () => {
         expect(id).toBe('active-results');
         expect(input.events).toEqual(['focusin', 'input', 'change']);
         expect(input.value).toBe('RAT');
-        return mounted ? suggestions : null;
+        const popup = mounted ? suggestions : null;
+        mounted = true;
+        return popup;
       });
 
       mocks.wait.mockImplementation(async (base, selector) => {
@@ -98,9 +97,6 @@ describe('selectMaterialInMaterialSelector', () => {
         if (base === container && selector === 'input') {
           return input;
         }
-        if (base === suggestions && selector === 'suggestions-list') {
-          return list;
-        }
         throw new Error(`Unexpected selector: ${selector}`);
       });
       mocks.selectAll.mockImplementation((base, selector) => {
@@ -108,21 +104,19 @@ describe('selectMaterialInMaterialSelector', () => {
         expect(selector).toBe('suggestion-option');
         return [wrong, match];
       });
-      mocks.select.mockImplementation(base => ({ textContent: base === match ? 'RAT' : 'RATX' }));
+      mocks.select.mockImplementation((base, selector) => {
+        if (base === suggestions && selector === 'suggestions-list') {
+          return list;
+        }
+        return { textContent: base === match ? 'RAT' : 'RATX' };
+      });
 
-      const selection = selectMaterialInMaterialSelector(
-        containerSupplied ? container : root,
-        'RAT',
-      );
-      if (delayed) {
-        await vi.waitFor(() => expect(mocks.observe).toHaveBeenCalledOnce());
-        expect(mocks.observe.mock.calls[0][0]).toBe(input.ownerDocument.documentElement);
-        mounted = true;
-        expect(mocks.observe.mock.calls[0][1]()).toBe(true);
-      }
-      expect(await selection).toBe(true);
+      expect(
+        await selectMaterialInMaterialSelector(containerSupplied ? container : root, 'RAT'),
+      ).toBe(true);
 
       expect(wrong.dispatchEvent).not.toHaveBeenCalled();
+      expect(suggestions.dispatchEvent.mock.calls.map(x => x[0].type)).toEqual(['mouseout']);
       expect(match.dispatchEvent.mock.calls.map(x => x[0].type)).toEqual([
         'pointerdown',
         'mousedown',
@@ -130,7 +124,7 @@ describe('selectMaterialInMaterialSelector', () => {
         'mouseup',
         'click',
       ]);
-      expect(suggestions.style.display).toBe('');
+      expect(suggestions.style.display).toBe('block');
     },
   );
 });

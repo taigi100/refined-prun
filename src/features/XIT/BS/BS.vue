@@ -1,4 +1,5 @@
 <script setup lang="ts">
+import FilterRow from '@src/components/FilterRow.vue';
 import LoadingSpinner from '@src/components/LoadingSpinner.vue';
 import RadioItem from '@src/components/forms/RadioItem.vue';
 import TextInput from '@src/components/forms/TextInput.vue';
@@ -166,7 +167,7 @@ watch([showCmds, filteredBases], ([showCommands, bases]) => {
 <template>
   <LoadingSpinner v-if="bases === undefined" />
   <template v-else>
-    <div :class="[C.ComExOrdersPanel.filter, $style.filter]">
+    <FilterRow :class="$style.filter">
       <div :class="$style.searchContainer">
         Planet:&nbsp;
         <TextInput v-model="planetFilter" />
@@ -187,7 +188,7 @@ watch([showCmds, filteredBases], ([showCommands, bases]) => {
       <div :class="$style.spacer" />
       <PrunButton primary @click="showBuffer('XIT AGT')">AGENT</PrunButton>
       <PrunButton primary @click="showBuffer('XIT DSP')">DISPATCH</PrunButton>
-    </div>
+    </FilterRow>
     <table :class="$style.table">
       <thead>
         <tr>
@@ -243,8 +244,6 @@ watch([showCmds, filteredBases], ([showCommands, bases]) => {
 
 <style module>
 .filter {
-  display: flex;
-  flex-wrap: wrap;
   align-items: center;
 }
 
