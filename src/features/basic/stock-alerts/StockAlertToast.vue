@@ -1,10 +1,28 @@
 <script setup lang="ts">
-import { activeStockAlerts } from '@src/core/stock-alerts';
+import { activeStockAlerts, stockAlertKey } from '@src/core/stock-alerts';
 import { getEntityNameFromAddress } from '@src/infrastructure/prun-api/data/addresses';
 import { storagesStore } from '@src/infrastructure/prun-api/data/storage';
 import { warehousesStore } from '@src/infrastructure/prun-api/data/warehouses';
 import { showBuffer } from '@src/infrastructure/prun-ui/buffers';
 import { fixed02 } from '@src/utils/format';
+
+const dismissedAlerts = ref(new Set<string>());
+const visibleAlerts = computed(() =>
+  activeStockAlerts.value.filter(x => !dismissedAlerts.value.has(stockAlertKey(x))),
+);
+
+watch(activeStockAlerts, alerts => {
+  const activeKeys = new Set(alerts.map(stockAlertKey));
+  for (const key of dismissedAlerts.value) {
+    if (!activeKeys.has(key)) {
+      dismissedAlerts.value.delete(key);
+    }
+  }
+});
+
+function dismissAlerts() {
+  dismissedAlerts.value = new Set(activeStockAlerts.value.map(stockAlertKey));
+}
 
 function storageLabel(storeId: string) {
   const storage = storagesStore.getById(storeId);
@@ -27,13 +45,22 @@ function openAlerts() {
 </script>
 
 <template>
-  <aside v-if="activeStockAlerts.length > 0" :class="$style.notice" aria-live="polite">
-    <button :class="$style.header" type="button" @click="openAlerts">
-      LOW STOCK ({{ activeStockAlerts.length }})
-    </button>
+  <aside v-if="visibleAlerts.length > 0" :class="$style.notice" aria-live="polite">
+    <div :class="$style.header">
+      <button :class="$style.heading" type="button" @click="openAlerts">
+        LOW STOCK ({{ visibleAlerts.length }})
+      </button>
+      <button
+        :class="$style.dismiss"
+        type="button"
+        aria-label="Dismiss low stock alerts"
+        @click="dismissAlerts">
+        ×
+      </button>
+    </div>
     <button
-      v-for="alert in activeStockAlerts.slice(0, 5)"
-      :key="`${alert.storeId}:${alert.ticker}`"
+      v-for="alert in visibleAlerts.slice(0, 5)"
+      :key="stockAlertKey(alert)"
       :class="$style.alert"
       type="button"
       @click="openAlerts">
@@ -57,10 +84,10 @@ function openAlerts() {
   font: 12px monospace;
 }
 
-.header,
+.heading,
+.dismiss,
 .alert {
   display: block;
-  width: 100%;
   border: 0;
   background: transparent;
   color: inherit;
@@ -70,18 +97,30 @@ function openAlerts() {
 }
 
 .header {
-  padding: 7px 9px;
+  display: flex;
   background: rgb(217, 83, 79);
   color: white;
   font-weight: bold;
 }
 
+.heading {
+  flex: 1;
+  padding: 7px 9px;
+}
+
+.dismiss {
+  padding: 0 9px;
+  font-size: 16px;
+}
+
 .alert {
+  width: 100%;
   padding: 5px 9px;
 }
 
 .alert:hover,
-.header:hover {
+.heading:hover,
+.dismiss:hover {
   background-color: rgba(255, 255, 255, 0.12);
 }
 </style>
